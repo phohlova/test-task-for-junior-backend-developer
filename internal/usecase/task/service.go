@@ -87,7 +87,7 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 }
 
 func (s *Service) List(ctx context.Context) ([]taskdomain.Task, error) {
-	return s.repo.List(ctx)
+    return s.repo.List(ctx) 
 }
 
 func validateCreateInput(input CreateInput) (CreateInput, error) {
