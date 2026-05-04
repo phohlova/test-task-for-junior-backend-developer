@@ -195,3 +195,68 @@ func scanTask(scanner taskScanner) (*taskdomain.Task, error) {
 	task.Status = taskdomain.Status(statusStr)
 	return &task, nil
 }
+
+func (r *Repository) GetActiveTemplatesByDate(ctx context.Context, asOf time.Time, limit, instanceID, clusterSize int) ([]*taskdomain.Task, error) {
+	query := `
+		SELECT id, title, description, status, created_at, updated_at, recurring_config
+		FROM tasks
+		WHERE parent_task_id IS NULL
+		AND recurring_config IS NOT NULL
+		AND (recurring_config->>'end_date')::timestamptz IS NULL 
+			OR (recurring_config->>'end_date')::timestamptz >= $1
+		AND id %% $3 = $4
+		ORDER BY id
+		LIMIT $2
+	`
+
+	rows, err := r.pool.Query(ctx, query, asOf, limit, clusterSize, instanceID % clusterSize)
+	if err != nil {
+		return nil, fmt.Errorf("query templates: %w", err)
+	}
+	defer rows.Close()
+
+	var tasks []*taskdomain.Task
+	for rows.Next() {
+		var t taskdomain.Task
+		var statusStr string
+		var configJSON []byte
+
+		if err := rows.Scan(&t.ID, &t.Title, &t.Description, &statusStr, &t.CreatedAt, &t.UpdatedAt, &configJSON); err != nil {
+			return nil, fmt.Errorf("scan task: %w", err)
+		}
+		t.Status = taskdomain.Status(statusStr)
+
+		if len(configJSON) > 0 {
+			var cfg taskdomain.RecurrenceConfig
+			if err := json.Unmarshal(configJSON, &cfg); err != nil {
+				return nil, fmt.Errorf("unmarshal config: %w", err)
+			}
+			t.RecurringConfig = &cfg
+		}
+		tasks = append(tasks, &t)
+	}
+	return tasks, rows.Err()
+}
+
+func (r *Repository) InsertInstancesIdempotent(ctx context.Context, parentID int64, dates []time.Time) (int, error) {
+	if len(dates) == 0 {
+		return 0, nil
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	inserted, err := r.insertInstancesTx(ctx, tx, parentID, dates)
+	if err != nil {
+		return 0, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return 0, fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return inserted, nil
+}

@@ -15,9 +15,10 @@ import (
 	transporthttp "example.com/taskservice/internal/transport/http"
 	swaggerdocs "example.com/taskservice/internal/transport/http/docs"
 	httphandlers "example.com/taskservice/internal/transport/http/handlers"
+	
 	"example.com/taskservice/internal/usecase/task"
-
-	taskdomain "example.com/taskservice/internal/domain/task" 
+	taskdomain "example.com/taskservice/internal/domain/task"
+	"example.com/taskservice/internal/scheduler"
 )
 
 func main() {
@@ -46,11 +47,27 @@ func main() {
 	genReg.Register(taskdomain.RecurrenceTypeParity, &taskdomain.ParityGenerator{})
 
 	recRepo := taskRepo
-
 	taskUsecase := task.NewService(taskRepo, recRepo, genReg)
+
 	taskHandler := httphandlers.NewTaskHandler(taskUsecase)
 	docsHandler := swaggerdocs.NewHandler()
 	router := transporthttp.NewRouter(taskHandler, docsHandler)
+
+	workerCfg := scheduler.WorkerConfig{
+		TickInterval: 1 * time.Hour,
+		Lookahead:    24 * time.Hour,
+		BatchLimit:   100,
+		InstanceID:   0,
+		ClusterSize:  1,
+	}
+	worker := scheduler.NewWorker(recRepo, genReg, workerCfg)
+
+	go func() {
+		logger.Info("starting recurrence worker...")
+		if err := worker.Run(ctx); err != nil {
+			logger.Error("recurrence worker stopped", "error", err)
+		}
+	}()
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
@@ -74,7 +91,6 @@ func main() {
 	}
 }
 
-
 type config struct {
 	HTTPAddr    string
 	DatabaseDSN string
@@ -85,11 +101,9 @@ func loadConfig() config {
 		HTTPAddr:    envOrDefault("HTTP_ADDR", ":8080"),
 		DatabaseDSN: envOrDefault("DATABASE_DSN", "postgres://postgres:postgres@localhost:5432/taskservice?sslmode=disable"),
 	}
-
 	if cfg.DatabaseDSN == "" {
 		panic(fmt.Errorf("DATABASE_DSN is required"))
 	}
-
 	return cfg
 }
 
@@ -97,6 +111,5 @@ func envOrDefault(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
-
 	return fallback
 }
