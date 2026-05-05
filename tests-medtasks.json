@@ -1,0 +1,181 @@
+{
+	"info": {
+		"name": "Task Service - Периодические задачи",
+		"description": "Тестирование CRUD и периодических задач",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Создать обычную задачу",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"title\":\"Провести операцию\",\"description\":\"Плановая операция\",\"status\":\"new\"}"
+				},
+				"url": {"raw": "http://localhost:8080/api/v1/tasks", "host": ["localhost:8080"], "path": ["api","v1","tasks"]}
+			}
+		},
+		{
+			"name": "2. Создать daily (каждый день)",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"title\":\"Обзвон пациентов\",\"description\":\"Ежедневный обзвон\",\"recurring_config\":{\"type\":\"daily\",\"interval\":1,\"start_date\":\"2026-05-06T00:00:00Z\",\"timezone\":\"Europe/Moscow\"}}"
+				},
+				"url": {"raw": "http://localhost:8080/api/v1/tasks", "host": ["localhost:8080"], "path": ["api","v1","tasks"]}
+			}
+		},
+		{
+			"name": "3. Создать daily (каждые 2 дня)",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"title\":\"Проверка оборудования\",\"description\":\"Каждые 2 дня\",\"recurring_config\":{\"type\":\"daily\",\"interval\":2,\"start_date\":\"2026-05-06T00:00:00Z\"}}"
+				},
+				"url": {"raw": "http://localhost:8080/api/v1/tasks", "host": ["localhost:8080"], "path": ["api","v1","tasks"]}
+			}
+		},
+		{
+			"name": "4. Создать monthly (15 число)",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"title\":\"Отчётность\",\"description\":\"Ежемесячный отчёт\",\"recurring_config\":{\"type\":\"monthly\",\"day_of_month\":15,\"start_date\":\"2026-05-15T00:00:00Z\"}}"
+				},
+				"url": {"raw": "http://localhost:8080/api/v1/tasks", "host": ["localhost:8080"], "path": ["api","v1","tasks"]}
+			}
+		},
+		{
+			"name": "5. Создать specific_dates",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"title\":\"Вакцинация\",\"description\":\"По конкретным датам\",\"recurring_config\":{\"type\":\"specific_dates\",\"specific_dates\":[\"2026-06-15T00:00:00Z\",\"2026-09-20T00:00:00Z\"],\"start_date\":\"2026-06-15T00:00:00Z\"}}"
+				},
+				"url": {"raw": "http://localhost:8080/api/v1/tasks", "host": ["localhost:8080"], "path": ["api","v1","tasks"]}
+			}
+		},
+		{
+			"name": "6. Создать parity (нечётные)",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"title\":\"Дежурство\",\"description\":\"По нечётным дням\",\"recurring_config\":{\"type\":\"parity\",\"parity_mode\":\"odd\",\"start_date\":\"2026-05-06T00:00:00Z\"}}"
+				},
+				"url": {"raw": "http://localhost:8080/api/v1/tasks", "host": ["localhost:8080"], "path": ["api","v1","tasks"]}
+			}
+		},
+		{
+			"name": "7. Создать parity (чётные)",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"title\":\"Отчётность\",\"description\":\"По чётным дням\",\"recurring_config\":{\"type\":\"parity\",\"parity_mode\":\"even\",\"start_date\":\"2026-05-06T00:00:00Z\"}}"
+				},
+				"url": {"raw": "http://localhost:8080/api/v1/tasks", "host": ["localhost:8080"], "path": ["api","v1","tasks"]}
+			}
+		},
+		{
+			"name": "8. Получить все задачи",
+			"request": {
+				"method": "GET",
+				"url": {"raw": "http://localhost:8080/api/v1/tasks", "host": ["localhost:8080"], "path": ["api","v1","tasks"]}
+			}
+		},
+		{
+			"name": "9. Получить задачу по ID",
+			"request": {
+				"method": "GET",
+				"url": {"raw": "http://localhost:8080/api/v1/tasks/1", "host": ["localhost:8080"], "path": ["api","v1","tasks","1"]}
+			}
+		},
+		{
+			"name": "10. Обновить задачу",
+			"request": {
+				"method": "PUT",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"title\":\"Обновлённая задача\",\"description\":\"Новое описание\",\"status\":\"in_progress\"}"
+				},
+				"url": {"raw": "http://localhost:8080/api/v1/tasks/1", "host": ["localhost:8080"], "path": ["api","v1","tasks","1"]}
+			}
+		},
+		{
+			"name": "11. Удалить задачу",
+			"request": {
+				"method": "DELETE",
+				"url": {"raw": "http://localhost:8080/api/v1/tasks/1", "host": ["localhost:8080"], "path": ["api","v1","tasks","1"]}
+			}
+		},
+		{
+			"name": "12. [Граничный] daily interval=0 (400)",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"title\":\"Тест\",\"recurring_config\":{\"type\":\"daily\",\"interval\":0,\"start_date\":\"2026-05-06T00:00:00Z\"}}"
+				},
+				"url": {"raw": "http://localhost:8080/api/v1/tasks", "host": ["localhost:8080"], "path": ["api","v1","tasks"]}
+			}
+		},
+		{
+			"name": "13. [Граничный] monthly day=32 (400)",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"title\":\"Тест\",\"recurring_config\":{\"type\":\"monthly\",\"day_of_month\":32,\"start_date\":\"2026-05-06T00:00:00Z\"}}"
+				},
+				"url": {"raw": "http://localhost:8080/api/v1/tasks", "host": ["localhost:8080"], "path": ["api","v1","tasks"]}
+			}
+		},
+		{
+			"name": "14. [Граничный] parity invalid (400)",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"title\":\"Тест\",\"recurring_config\":{\"type\":\"parity\",\"parity_mode\":\"invalid\",\"start_date\":\"2026-05-06T00:00:00Z\"}}"
+				},
+				"url": {"raw": "http://localhost:8080/api/v1/tasks", "host": ["localhost:8080"], "path": ["api","v1","tasks"]}
+			}
+		},
+		{
+			"name": "15. [Граничный] пустой title (400)",
+			"request": {
+				"method": "POST",
+				"header": [{"key": "Content-Type", "value": "application/json"}],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"title\":\"\",\"description\":\"Тест\"}"
+				},
+				"url": {"raw": "http://localhost:8080/api/v1/tasks", "host": ["localhost:8080"], "path": ["api","v1","tasks"]}
+			}
+		},
+		{
+			"name": "16. [Граничный] несуществующий ID (404)",
+			"request": {
+				"method": "GET",
+				"url": {"raw": "http://localhost:8080/api/v1/tasks/99999", "host": ["localhost:8080"], "path": ["api","v1","tasks","99999"]}
+			}
+		}
+	]
+}
