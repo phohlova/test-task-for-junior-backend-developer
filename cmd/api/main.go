@@ -15,7 +15,10 @@ import (
 	transporthttp "example.com/taskservice/internal/transport/http"
 	swaggerdocs "example.com/taskservice/internal/transport/http/docs"
 	httphandlers "example.com/taskservice/internal/transport/http/handlers"
+	
 	"example.com/taskservice/internal/usecase/task"
+	taskdomain "example.com/taskservice/internal/domain/task"
+	"example.com/taskservice/internal/scheduler"
 )
 
 func main() {
@@ -36,10 +39,35 @@ func main() {
 	defer pool.Close()
 
 	taskRepo := postgresrepo.New(pool)
-	taskUsecase := task.NewService(taskRepo)
+
+	genReg := taskdomain.NewGeneratorRegistry()
+	genReg.Register(taskdomain.RecurrenceTypeDaily, &taskdomain.DailyGenerator{})
+	genReg.Register(taskdomain.RecurrenceTypeMonthly, &taskdomain.MonthlyGenerator{})
+	genReg.Register(taskdomain.RecurrenceTypeSpecificDates, &taskdomain.DatesGenerator{})
+	genReg.Register(taskdomain.RecurrenceTypeParity, &taskdomain.ParityGenerator{})
+
+	recRepo := taskRepo
+	taskUsecase := task.NewService(taskRepo, recRepo, genReg)
+
 	taskHandler := httphandlers.NewTaskHandler(taskUsecase)
 	docsHandler := swaggerdocs.NewHandler()
 	router := transporthttp.NewRouter(taskHandler, docsHandler)
+
+	workerCfg := scheduler.WorkerConfig{
+		TickInterval: 1 * time.Hour,
+		Lookahead:    24 * time.Hour,
+		BatchLimit:   100,
+		InstanceID:   0,
+		ClusterSize:  1,
+	}
+	worker := scheduler.NewWorker(recRepo, genReg, workerCfg)
+
+	go func() {
+		logger.Info("starting recurrence worker...")
+		if err := worker.Run(ctx); err != nil {
+			logger.Error("recurrence worker stopped", "error", err)
+		}
+	}()
 
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
@@ -49,17 +77,14 @@ func main() {
 
 	go func() {
 		<-ctx.Done()
-
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			logger.Error("shutdown http server", "error", err)
 		}
 	}()
 
 	logger.Info("http server started", "addr", cfg.HTTPAddr)
-
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.Error("listen and serve", "error", err)
 		os.Exit(1)
@@ -76,11 +101,9 @@ func loadConfig() config {
 		HTTPAddr:    envOrDefault("HTTP_ADDR", ":8080"),
 		DatabaseDSN: envOrDefault("DATABASE_DSN", "postgres://postgres:postgres@localhost:5432/taskservice?sslmode=disable"),
 	}
-
 	if cfg.DatabaseDSN == "" {
 		panic(fmt.Errorf("DATABASE_DSN is required"))
 	}
-
 	return cfg
 }
 
@@ -88,6 +111,5 @@ func envOrDefault(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
-
 	return fallback
 }

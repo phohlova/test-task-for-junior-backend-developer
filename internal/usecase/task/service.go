@@ -9,15 +9,23 @@ import (
 	taskdomain "example.com/taskservice/internal/domain/task"
 )
 
-type Service struct {
-	repo Repository
-	now  func() time.Time
+type RecurringRepository interface {
+	CreateRecurringWithInstances(ctx context.Context, tmpl *taskdomain.Task, cfg *taskdomain.RecurrenceConfig, dates []time.Time) (*taskdomain.Task, error)
 }
 
-func NewService(repo Repository) *Service {
+type Service struct {
+	repo    Repository
+	recRepo RecurringRepository 
+	genReg  *taskdomain.GeneratorRegistry
+	now     func() time.Time
+}
+
+func NewService(repo Repository, recRepo RecurringRepository, genReg *taskdomain.GeneratorRegistry) *Service {
 	return &Service{
-		repo: repo,
-		now:  func() time.Time { return time.Now().UTC() },
+		repo:    repo,
+		recRepo: recRepo,
+		genReg:  genReg,
+		now:     func() time.Time { return time.Now().UTC() },
 	}
 }
 
@@ -25,6 +33,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*taskdomain.Ta
 	normalized, err := validateCreateInput(input)
 	if err != nil {
 		return nil, err
+	}
+
+	if input.RecurringConfig != nil && s.recRepo != nil {
+		return s.createRecurring(ctx, normalized, input.RecurringConfig)
 	}
 
 	model := &taskdomain.Task{
@@ -42,6 +54,46 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*taskdomain.Ta
 	}
 
 	return created, nil
+}
+
+func (s *Service) createRecurring(ctx context.Context, input CreateInput, cfg *taskdomain.RecurrenceConfig) (*taskdomain.Task, error) {
+
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("validate recurrence: %w", err)
+	}
+
+	if err := taskdomain.ApplyTimezone(cfg); err != nil {
+		return nil, fmt.Errorf("apply timezone: %w", err)
+	}
+
+	gen, err := s.genReg.Get(cfg.Type)
+	if err != nil {
+		return nil, fmt.Errorf("get generator: %w", err)
+	}
+
+	dates, err := gen.Generate(*cfg)
+	if err != nil {
+		return nil, fmt.Errorf("generate dates: %w", err)
+	}
+
+	now := s.now()
+	var futureDates []time.Time
+	for _, d := range dates {
+		if !d.Before(now) {
+			futureDates = append(futureDates, d)
+		}
+	}
+
+	model := &taskdomain.Task{
+		Title:           input.Title,
+		Description:     input.Description,
+		Status:          taskdomain.StatusNew,
+		RecurringConfig: cfg,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+
+	return s.recRepo.CreateRecurringWithInstances(ctx, model, cfg, futureDates)
 }
 
 func (s *Service) GetByID(ctx context.Context, id int64) (*taskdomain.Task, error) {

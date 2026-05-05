@@ -20,24 +20,11 @@ func NewTaskHandler(usecase taskusecase.Usecase) *TaskHandler {
 	return &TaskHandler{usecase: usecase}
 }
 
-func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req taskMutationDTO
-	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
+func getStringOrDefault(s *string, defaultVal string) string {
+	if s == nil {
+		return defaultVal
 	}
-
-	created, err := h.usecase.Create(r.Context(), taskusecase.CreateInput{
-		Title:       req.Title,
-		Description: req.Description,
-		Status:      req.Status,
-	})
-	if err != nil {
-		writeUsecaseError(w, err)
-		return
-	}
-
-	writeJSON(w, http.StatusCreated, newTaskDTO(created))
+	return *s
 }
 
 func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +43,34 @@ func (h *TaskHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, newTaskDTO(task))
 }
 
+func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
+	var req taskMutationDTO
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	status := taskdomain.StatusNew
+	if req.Status != "" {
+		status = taskdomain.Status(req.Status)
+	}
+
+	input := taskusecase.CreateInput{
+		Title:           req.Title,
+		Description:     req.Description,
+		Status:          status,
+		RecurringConfig: req.RecurringConfig, // <-- Передаём настройки периодичности
+	}
+
+	created, err := h.usecase.Create(r.Context(), input)
+	if err != nil {
+		writeUsecaseError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, newTaskDTO(created))
+}
+
 func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := getIDFromRequest(r)
 	if err != nil {
@@ -69,10 +84,15 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	status := taskdomain.StatusNew
+	if req.Status != "" {
+		status = taskdomain.Status(req.Status)
+	}
+
 	updated, err := h.usecase.Update(r.Context(), id, taskusecase.UpdateInput{
 		Title:       req.Title,
 		Description: req.Description,
-		Status:      req.Status,
+		Status:      status,
 	})
 	if err != nil {
 		writeUsecaseError(w, err)

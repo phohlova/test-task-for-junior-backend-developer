@@ -14,10 +14,14 @@ FROM alpine:3.21
 
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates tzdata postgresql-client
 
 COPY --from=builder /out/taskservice /app/taskservice
 
+COPY migrations /app/migrations
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 EXPOSE 8080
 
-CMD ["/app/taskservice"]
+ENTRYPOINT ["/app/entrypoint.sh"]
