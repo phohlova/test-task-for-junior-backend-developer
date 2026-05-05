@@ -204,12 +204,12 @@ func (r *Repository) GetActiveTemplatesByDate(ctx context.Context, asOf time.Tim
 		AND recurring_config IS NOT NULL
 		AND (recurring_config->>'end_date')::timestamptz IS NULL 
 			OR (recurring_config->>'end_date')::timestamptz >= $1
-		AND id %% $3 = $4
+		AND id % $3 = $4
 		ORDER BY id
 		LIMIT $2
 	`
 
-	rows, err := r.pool.Query(ctx, query, asOf, limit, clusterSize, instanceID % clusterSize)
+	rows, err := r.pool.Query(ctx, query, asOf, limit, clusterSize, instanceID%clusterSize)
 	if err != nil {
 		return nil, fmt.Errorf("query templates: %w", err)
 	}
